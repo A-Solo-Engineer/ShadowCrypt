@@ -1,0 +1,67 @@
+name: shadowcrypt
+description: "Local-first, zero-knowledge messaging platform with encrypted vault."
+publish_to: "none"
+
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Database & Encryption
+  drift: ^2.14.0
+  sqlite3_flutter_libs: ^0.5.20
+  sqlite3: ^3.45.0
+  sqlcipher_flutter_libs: ^0.0.2
+  
+  # Cryptography
+  cryptography: ^2.7.0
+  pointycastle: ^3.7.3
+  bip39: ^1.0.6  # BIP-39 mnemonic
+  bip32: ^2.0.0  # Hierarchical deterministic wallets
+  ed25519_edwards: ^0.2.0  # Ed25519 implementation
+  
+  # Key management
+  flutter_secure_storage: ^9.0.0
+  
+  # WebSocket & Networking
+  web_socket_channel: ^2.4.0
+  
+  # Utilities
+  convert: ^3.1.1
+  hex: ^0.2.0
+  equatable: ^2.0.5
+  
+  # State Management
+  provider: ^6.0.0
+  flutter_svg: ^2.1.0
+  
+  # Logging
+  logger: ^2.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  drift_dev: ^2.14.0
+  build_runner: ^2.4.0
+  flutter_launcher_icons: ^0.11.0
+  
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo/
+
+flutter_icons:
+  android: true
+  windows: true
+  image_path: "assets/logo/double_ratchet_logo_no_text.svg"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/logo/double_ratchet_logo_no_text.svg"
+  min_sdk_android: 21

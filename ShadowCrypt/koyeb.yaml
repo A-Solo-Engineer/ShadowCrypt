@@ -1,0 +1,264 @@
+# ============================================================================
+# ShadowCrypt BlindRelay - Koyeb Deployment Configuration
+# ============================================================================
+# This configuration defines the complete deployment for Koyeb:
+# - Stateless WebSocket relay (RAM-only, zero persistence)
+# - Auto-scaling for burst traffic
+# - Health checks and graceful shutdown
+# - Environment-based configuration (production-ready)
+# ============================================================================
+
+apiVersion: koyeb.com/v1
+kind: Service
+metadata:
+  name: shadowcrypt-blindrelay
+  namespace: production
+
+spec:
+  # ============================================================================
+  # DEPLOYMENT CONFIGURATION
+  # ============================================================================
+  deployment:
+    # GitHub repository integration (Git-ops)
+    git:
+      repository: your-github-org/shadowcrypt
+      branch: main
+      buildCommand: |
+        cd backend
+        go mod download
+        go build -o blindrelay ./cmd/blindrelay/main.go
+      dockerfile: ./Dockerfile
+
+    # Docker image configuration (if not building from source)
+    # image:
+    #   registry: ghcr.io
+    #   name: your-org/shadowcrypt-blindrelay
+    #   tag: latest
+
+  # ============================================================================
+  # ROUTING & PORT CONFIGURATION
+  # ============================================================================
+  routes:
+    - path: /
+      port: 3000
+      protocol: HTTP
+      pathRewrite: false
+
+    # WebSocket endpoint (raw Upgrade protocol)
+    - path: /ws
+      port: 3000
+      protocol: HTTP
+
+    # Health checks
+    - path: /health
+      port: 3000
+      protocol: HTTP
+      timeoutSeconds: 5
+
+    - path: /ready
+      port: 3000
+      protocol: HTTP
+      timeoutSeconds: 5
+
+    - path: /live
+      port: 3000
+      protocol: HTTP
+      timeoutSeconds: 5
+
+    # Metrics endpoint
+    - path: /metrics
+      port: 3000
+      protocol: HTTP
+      rateLimit:
+        requests: 10
+        windowSeconds: 60
+
+  # ============================================================================
+  # ENVIRONMENT VARIABLES (Production Configuration)
+  # ============================================================================
+  env:
+    # Server port (Koyeb standard - automatically set, but explicit for clarity)
+    - name: PORT
+      value: "3000"
+
+    # Session timeout (30 minutes for production)
+    - name: SESSION_TIMEOUT_MINUTES
+      value: "30"
+
+    # Cleanup interval (5 minutes)
+    - name: CLEANUP_INTERVAL_MINUTES
+      value: "5"
+
+    # CORS origin restriction (CRITICAL - Replace with your Flutter app domain)
+    - name: ALLOWED_ORIGIN
+      value: "https://app.shadowcrypt.me"
+      # For development/testing:
+      # value: "*"
+      # For multiple origins (semicolon-separated):
+      # value: "https://app.shadowcrypt.me;https://staging.shadowcrypt.me"
+
+    # Rate limiting (requests per second)
+    - name: RATE_LIMIT_PER_SEC
+      value: "1000"
+
+    # Maximum concurrent connections
+    - name: MAX_CONNECTIONS
+      value: "10000"
+
+    # Logging level
+    - name: LOG_LEVEL
+      value: "INFO"
+
+  # ============================================================================
+  # SECRETS MANAGEMENT (Koyeb Secrets)
+  # ============================================================================
+  secrets:
+    # Store sensitive configuration in Koyeb secrets, not in code
+    - name: JWT_SECRET
+      value: koyeb-secret://jwt-secret-key
+    - name: ENCRYPTION_KEY
+      value: koyeb-secret://relay-encryption-key
+
+  # ============================================================================
+  # SCALING CONFIGURATION (Free-tier optimized for Koyeb)
+  # ============================================================================
+  scaling:
+    # Instance type: free-tier Koyeb instances (shared CPU, 0.5GB RAM)
+    instanceType: free  # Free-tier instance (sufficient for relay)
+
+    # Replica count
+    replicas:
+      min: 1          # Minimum 1 instance (free-tier)
+      max: 3          # Maximum 3 instances (horizontal scaling for burst)
+      targetCPUUtil: 70      # Scale up if CPU > 70%
+      targetMemoryUtil: 80   # Scale up if memory > 80%
+
+    # Scale behavior
+    scaleDown:
+      coolDownPeriod: 60      # Wait 60s before scaling down
+      stabilizationWindow: 300 # Prevent flapping
+
+    scaleUp:
+      coolDownPeriod: 30      # Immediate scale up on spike
+      stabilizationWindow: 0   # No delay for scale-up
+
+  # ============================================================================
+  # HEALTH CHECKS (Orchestration Probes)
+  # ============================================================================
+  healthChecks:
+    # Liveness probe: Is the container running?
+    liveness:
+      httpGet:
+        path: /live
+        port: 3000
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    # Readiness probe: Is the service ready for traffic?
+    readiness:
+      httpGet:
+        path: /ready
+        port: 3000
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 2
+
+  # ============================================================================
+  # LIFECYCLE & SHUTDOWN
+  # ============================================================================
+  lifecycle:
+    # Graceful shutdown period (Go app has 30s timeout)
+    terminationGracePeriodSeconds: 35
+
+    # Pre-terminate hook (optional)
+    preStop:
+      exec:
+        command: ["/bin/sh", "-c", "sleep 5"]
+
+  # ============================================================================
+  # RESOURCE LIMITS (Free-tier Koyeb defaults)
+  # ============================================================================
+  resources:
+    requests:
+      cpu: 0.1              # 100m CPU (free-tier)
+      memory: "128Mi"       # 128MB RAM (free-tier)
+
+    limits:
+      cpu: 0.5              # 500m CPU cap
+      memory: "512Mi"       # 512MB RAM cap
+
+  # ============================================================================
+  # SECURITY CONTEXT
+  # ============================================================================
+  securityContext:
+    runAsNonRoot: true      # Must run as non-root
+    runAsUser: 65532        # Distroless nonroot UID
+    runAsGroup: 65532       # Distroless nonroot GID
+    readOnlyRootFilesystem: true  # Immutable filesystem
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL               # Drop all Linux capabilities
+
+  # ============================================================================
+  # NETWORK POLICIES
+  # ============================================================================
+  networkPolicy:
+    # Allow ingress only on port 3000
+    ingress:
+      - port: 3000
+        protocol: TCP
+        allowCIDR: "0.0.0.0/0"  # Public internet (WebSocket relay)
+
+    # Egress not needed (stateless relay, no external calls)
+    egress: []
+
+  # ============================================================================
+  # LOGGING CONFIGURATION
+  # ============================================================================
+  logging:
+    level: INFO
+    format: json  # Structured logging for Koyeb integration
+    destination: stdout  # Koyeb captures stdout
+
+  # ============================================================================
+  # OBSERVABILITY & MONITORING
+  # ============================================================================
+  # Koyeb native integrations
+  observability:
+    metrics:
+      endpoint: /metrics
+      interval: 30s
+      port: 3000
+
+    # Logs are automatically captured from stdout/stderr
+
+  # ============================================================================
+  # DEPLOYMENT STRATEGY
+  # ============================================================================
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0     # Zero downtime - always have 1 instance
+      maxSurge: 1           # One extra instance during rollout
+
+  # ============================================================================
+  # REGION & AVAILABILITY
+  # ============================================================================
+  regions:
+    - name: us-east-1    # Primary region
+    - name: eu-west-1    # Secondary region (optional)
+
+  # ============================================================================
+  # ENVIRONMENT SETUP (First Deploy Only)
+  # ============================================================================
+  # Initialize with secrets:
+  # export ALLOWED_ORIGIN="https://app.yourdomain.com"
+  # export SESSION_TIMEOUT_MINUTES="30"
+  # export JWT_SECRET="your-base64-encoded-secret"
+  # koyeb service create shadowcrypt-blindrelay -f koyeb.yaml
