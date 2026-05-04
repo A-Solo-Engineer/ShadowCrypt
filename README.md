@@ -299,7 +299,7 @@ This is a reference implementation for learning. To extend:
 
 ## 👨‍💻 Author
 
-Built as a spiritual successor to **Forestritium** (non-profit encrypted messaging).
+Aarav (A Solo Engineer)
 
 ---
 
