@@ -295,7 +295,7 @@ This is a reference implementation for learning. To extend:
 
 ## 📄 License
 
-**MIT License** - See LICENSE file
+**AGPLv3** - See LICENSE file
 
 ## 👨‍💻 Author
 
