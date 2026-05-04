@@ -1,7 +1,7 @@
 # 🔐 ShadowCrypt: Zero-Knowledge Messaging Platform
 
 <p align="center">
-  <img src="frontend/assets/logo/double_ratchet_logo_no_text.svg" width="160" alt="ShadowCrypt Logo" />
+  <img src="ShadowCrypt/frontend/assets/logo/double_ratchet_logo_no_text.svg" width="160" alt="ShadowCrypt Logo" />
 </p>
 
 > **Local-first, end-to-end encrypted messaging with a stateless backend. No server-side storage ever.**
